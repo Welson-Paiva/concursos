@@ -132,32 +132,54 @@ export default function App() {
 
   const refreshAll = async (uid, authUser = null) => {
     try {
-        let { data: p } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
-        
-        if (!p && authUser) {
-          const { data: newP } = await supabase.from("profiles").insert({
+      // 1. Tenta buscar o perfil primeiro
+      let { data: p, error: fetchError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", uid)
+        .maybeSingle();
+
+      // 2. Lógica de "Upsert" manual para evitar o erro 409
+      if (!p && authUser) {
+        const { data: newP, error: insertError } = await supabase
+          .from("profiles")
+          .upsert({ // O 'upsert' atualiza se já existir ou insere se for novo
             id: uid,
             full_name: authUser.user_metadata?.full_name || authUser.user_metadata?.custom_claims?.global_name || "Operador",
             avatar_url: authUser.user_metadata?.avatar_url || "",
             xp: 0
-          }).select().single();
+          }, { onConflict: 'id' }) 
+          .select()
+          .single();
+
+        if (!insertError) {
           p = newP;
+        } else {
+          // Se ainda assim der erro, fazemos uma última tentativa de busca
+          const { data: retryP } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
+          p = retryP;
         }
+      }
 
-        const [d, a, h] = await Promise.all([
-          supabase.from("disciplinas").select("*").eq("user_id", uid).order('nome'),
-          supabase.from("assuntos").select("*").eq("user_id", uid).order('nome'),
-          supabase.from("historico_estudos").select("*").eq("user_id", uid).order('data', { ascending: false })
-        ]);
+      // 3. Busca os dados em paralelo (Disciplinas, Assuntos, Histórico)
+      const [d, a, h] = await Promise.all([
+        supabase.from("disciplinas").select("*").eq("user_id", uid).order('nome'),
+        supabase.from("assuntos").select("*").eq("user_id", uid).order('nome'),
+        supabase.from("historico_estudos").select("*").eq("user_id", uid).order('data', { ascending: false })
+      ]);
 
-        setProfile(p);
-        setDisciplinas(d.data || []);
-        setAssuntos(a.data || []);
-        setHistorico(h.data || []);
+      // 4. Atualiza os estados do React
+      setProfile(p);
+      setDisciplinas(d.data || []);
+      setAssuntos(a.data || []);
+      setHistorico(h.data || []);
+
     } catch (err) {
-        console.error("Erro na sincronização:", err);
+      console.error("Erro na sincronização:", err);
     } finally {
-        setLoading(false);
+      // ESTA LINHA É A MAIS IMPORTANTE: 
+      // Ela força o fim do estado de "Loading" mesmo que o Supabase dê erro de relógio.
+      setLoading(false);
     }
   };
 
