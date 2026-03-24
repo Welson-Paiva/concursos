@@ -262,6 +262,7 @@ export default function App() {
           onClick={() => supabase.auth.signInWithOAuth({ 
             provider: 'discord',
             options: {
+              // Certifique-se de que é redirectTo (CamelCase)
               redirectTo: `${window.location.origin}/auth/v1/callback`
             }
           })} 
