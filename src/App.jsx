@@ -260,14 +260,13 @@ export default function App() {
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-10">Autenticação Necessária</p>
         <button 
           onClick={async () => {
-            const { error } = await supabase.auth.signInWithOAuth({
+            await supabase.auth.signInWithOAuth({
               provider: 'discord',
               options: {
-                // O segredo está aqui: forçar o redirecionamento para o seu site na Cloudflare
+                // Use o link direto da Cloudflare aqui
                 redirectTo: 'https://controle-de-estudos.welson-d-o-p.workers.dev/auth/v1/callback'
               }
             });
-            if (error) console.error("Erro no login:", error.message);
           }} 
           className="cursor-pointer w-full bg-[#5865F2] text-white p-5 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 shadow-lg shadow-[#5865F2]/20 hover:scale-[1.02] active:scale-95 transition-all duration-300"
         >
