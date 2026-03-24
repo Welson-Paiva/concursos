@@ -259,13 +259,16 @@ export default function App() {
         <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-2">Comando de Estudos</h1>
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-10">Autenticação Necessária</p>
         <button 
-          onClick={() => supabase.auth.signInWithOAuth({ 
-            provider: 'discord',
-            options: {
-              // Certifique-se de que é redirectTo (CamelCase)
-              redirectTo: `${window.location.origin}/auth/v1/callback`
-            }
-          })} 
+          onClick={async () => {
+            const { error } = await supabase.auth.signInWithOAuth({
+              provider: 'discord',
+              options: {
+                // O segredo está aqui: forçar o redirecionamento para o seu site na Cloudflare
+                redirectTo: 'https://controle-de-estudos.welson-d-o-p.workers.dev/auth/v1/callback'
+              }
+            });
+            if (error) console.error("Erro no login:", error.message);
+          }} 
           className="cursor-pointer w-full bg-[#5865F2] text-white p-5 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 shadow-lg shadow-[#5865F2]/20 hover:scale-[1.02] active:scale-95 transition-all duration-300"
         >
           <Zap size={18} fill="currentColor"/> Conectar com Discord
