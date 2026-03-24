@@ -102,25 +102,21 @@ export default function App() {
   // --- LÓGICA DE AUTENTICAÇÃO E SINCRONIZAÇÃO ---
   useEffect(() => {
     const initAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          setUser(session.user);
-          await refreshAll(session.user.id, session.user);
-        } else {
-          setLoading(false); // Para o loop se não houver usuário
-        }
-      } catch (e) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setUser(session.user);
+        await refreshAll(session.user.id, session.user);
+      } else {
         setLoading(false);
       }
     };
     initAuth();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
+      if (event === 'SIGNED_IN' && session) {
         setUser(session.user);
         await refreshAll(session.user.id, session.user);
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setProfile(null);
         setLoading(false);
@@ -790,65 +786,62 @@ function ProfileView({ profile, user, refresh, notify }) {
 }
 
 function Modal({ modal, setModal, user, refreshAll, notify }) {
-  // Estados para controlar os inputs sem depender de ID do documento
-  const [nomeDisciplina, setNomeDisciplina] = useState(modal.type === 'editA' ? modal.data.nome : "");
-  const [nomeAssunto, setNomeAssunto] = useState("");
-
   const handleSave = async () => {
+    const v1 = document.getElementById('m_i1')?.value;
+    const v2 = document.getElementById('m_i2')?.value;
     try {
-      if (modal.type === 'editA') {
-        await supabase.from("assuntos").update({ nome: nomeDisciplina }).eq("id", modal.data.id);
-      } else if (modal.type === 'full') {
-        const { data } = await supabase.from("disciplinas").insert({ user_id: user.id, nome: nomeDisciplina }).select().single();
-        if (data) await supabase.from("assuntos").insert({ user_id: user.id, disciplina_id: data.id, nome: nomeAssunto });
-      } else if (modal.type === 'assu') {
-        await supabase.from("assuntos").insert({ user_id: user.id, disciplina_id: modal.data, nome: nomeAssunto });
-      } else if (modal.type === 'delD') {
-        await supabase.from("disciplinas").delete().eq("id", modal.data.id);
-      } else if (modal.type === 'delA') {
-        await supabase.from("assuntos").delete().eq("id", modal.data);
-      }
-      
-      notify("Operação concluída!", "success");
-      setModal({ type: null });
-      refreshAll(user.id);
-    } catch (e) {
-      notify("Erro ao processar dados.", "error");
+        if (modal.type === 'editA') await supabase.from("assuntos").update({ nome: v1 }).eq("id", modal.data.id);
+        else if (modal.type === 'full') {
+            const { data } = await supabase.from("disciplinas").insert({ user_id: user.id, nome: v1 }).select().single();
+            if(data) await supabase.from("assuntos").insert({ user_id: user.id, disciplina_id: data.id, nome: v2 });
+        } else if (modal.type === 'assu') await supabase.from("assuntos").insert({ user_id: user.id, disciplina_id: modal.data, nome: v2 });
+        else if (modal.type === 'delD') await supabase.from("disciplinas").delete().eq("id", modal.data.id);
+        else if (modal.type === 'delA') await supabase.from("assuntos").delete().eq("id", modal.data);
+        
+        notify("Operação concluída com sucesso!", "success"); 
+        setModal({ type: null }); 
+        refreshAll(user.id);
+    } catch (e) { 
+        notify("Falha na operação de banco de dados.", "error"); 
     }
   };
 
   return (
     <div className="fixed inset-0 z-[500] bg-[#0a0c10]/98 backdrop-blur-xl flex items-center justify-center p-4">
-      <div className="bg-[#0d1117] w-full max-w-sm p-10 rounded-[3rem] border border-white/10 shadow-2xl">
-        <h3 className="text-[11px] font-black uppercase text-indigo-500 mb-8 flex items-center gap-2">
-          <Zap size={14}/> {modal.type.startsWith('del') ? 'Confirmar Exclusão' : 'Gerenciar Dados'}
+      <div className="bg-[#0d1117] w-full max-w-sm p-10 rounded-[3rem] border border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.8)] animate-in zoom-in-90 duration-300">
+        <h3 className="text-[11px] font-black uppercase tracking-widest text-indigo-500 mb-8 italic flex items-center gap-2">
+            <Zap size={14}/> {modal.type.startsWith('del') ? 'Protocolo de Remoção' : 'Registro de Novos Dados'}
         </h3>
         <div className="space-y-5">
-          {!modal.type.startsWith('del') && (
-            <>
-              {(modal.type === 'full' || modal.type === 'editA') && (
-                <input 
-                  value={nomeDisciplina} 
-                  onChange={(e) => setNomeDisciplina(e.target.value)} 
-                  placeholder="Nome da Disciplina" 
-                  className="w-full bg-[#0a0c10] p-4 rounded-2xl text-white text-xs border border-white/5 outline-none focus:border-indigo-500" 
-                />
-              )}
-              {(modal.type === 'full' || modal.type === 'assu') && (
-                <input 
-                  value={nomeAssunto} 
-                  onChange={(e) => setNomeAssunto(e.target.value)} 
-                  placeholder="Nome do Assunto" 
-                  className="w-full bg-[#0a0c10] p-4 rounded-2xl text-white text-xs border border-white/5 outline-none focus:border-indigo-500" 
-                />
-              )}
-            </>
-          )}
-          {modal.type.startsWith('del') && <p className="text-xs text-slate-400 text-center">Deseja remover este item permanentemente?</p>}
-          <div className="pt-4 space-y-3">
-            <button onClick={handleSave} className="w-full p-5 rounded-2xl bg-indigo-600 text-white font-black text-[10px]">SALVAR</button>
-            <button onClick={() => setModal({ type: null })} className="w-full p-5 text-slate-500 text-[10px]">CANCELAR</button>
-          </div>
+            {!modal.type.startsWith('del') && (
+                <>
+                    {(modal.type === 'full' || modal.type === 'editA') && (
+                        <div className="space-y-2">
+                            <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-2">Disciplina</label>
+                            <input id="m_i1" defaultValue={modal.type === 'editA' ? modal.data.nome : ''} placeholder="Ex: Direito Penal" className="w-full bg-[#0a0c10] p-4 rounded-2xl outline-none text-white text-xs border border-white/5 focus:border-indigo-500 transition-all" />
+                        </div>
+                    )}
+                    {(modal.type === 'full' || modal.type === 'assu') && (
+                        <div className="space-y-2">
+                            <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-2">Assunto/Tópico</label>
+                            <input id="m_i2" placeholder="Ex: Inquérito Policial" className="w-full bg-[#0a0c10] p-4 rounded-2xl outline-none text-white text-xs border border-white/5 focus:border-indigo-500 transition-all" />
+                        </div>
+                    )}
+                </>
+            )}
+            {modal.type.startsWith('del') && (
+                <div className="py-6 text-center">
+                    <AlertTriangle size={40} className="text-rose-500 mx-auto mb-4 opacity-50" />
+                    <p className="text-xs font-bold text-slate-400 uppercase leading-relaxed tracking-tighter">Confirmar a exclusão permanente dos registros selecionados?</p>
+                </div>
+            )}
+            
+            <div className="pt-4 space-y-3">
+                <button onClick={handleSave} className={`cursor-pointer w-full p-5 rounded-2xl font-black text-[10px] tracking-widest transition-all ${modal.type.startsWith('del') ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'} text-white shadow-lg`}>
+                    {modal.type.startsWith('del') ? 'CONFIRMAR EXCLUSÃO' : 'SALVAR NO BANCO'}
+                </button>
+                <button onClick={() => setModal({ type: null })} className="cursor-pointer w-full p-5 rounded-2xl font-black text-[10px] tracking-widest text-slate-600 uppercase hover:text-white hover:bg-white/5 transition-all">Abortar</button>
+            </div>
         </div>
       </div>
     </div>
