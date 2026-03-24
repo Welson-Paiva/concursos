@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Cores do Modo Claro (Padrão) */
+    --bg-app: #f8fafc;
+    --bg-card: #ffffff;
+    --text-main: #0f172a;
+    --border-color: #e2e8f0;
+    --input-bg: #f1f5f9;
+    color-scheme: light;
+  }
+
+  /* Só aplica o Modo Escuro se a CLASSE .dark estiver presente */
+  .dark {
+    --bg-app: #0a0c10;
+    --bg-card: #0d1117;
+    --text-main: #f1f5f9;
+    --border-color: #1e293b;
+    --input-bg: rgba(255, 255, 255, 0.05);
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--bg-app);
+    color: var(--text-main);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+}
